@@ -1,15 +1,15 @@
 import requests
 import json
 
+# Ollama Endpoint
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "deepseek-r1:7b"
 
 
+# ------------------------------------------------------------
+# RAW single-shot LLM call (rarely used)
+# ------------------------------------------------------------
 def ask_llm(prompt: str) -> str:
-    """
-    Simple 1-shot LLM call.
-    Returns raw text only.
-    """
     payload = {
         "model": MODEL_NAME,
         "prompt": prompt,
@@ -25,17 +25,22 @@ def ask_llm(prompt: str) -> str:
         return "LLM_ERROR"
 
 
+# ------------------------------------------------------------
+# Main Chat Completion Interface (DeepSeek-R1 safe wrapper)
+# ------------------------------------------------------------
 def chat_completion(prompt: str) -> str:
     """
-    For multi-step instructions (schema detection, explanations).
-    Always returns CLEAN text (no XML, no thinking blocks).
-    Removes DeepSeek R1 chain-of-thought automatically.
+    - Calls DeepSeek-R1 via Ollama
+    - Removes chain-of-thought (<think>)
+    - Removes XML-like tags
+    - Returns plain text ONLY
+    - Avoids hallucinated formatting
     """
 
     payload = {
         "model": MODEL_NAME,
         "prompt": prompt,
-        "stream": False
+        "stream": False,
     }
 
     try:
@@ -43,9 +48,16 @@ def chat_completion(prompt: str) -> str:
         r.raise_for_status()
         raw = r.json().get("response", "")
 
-        # REMOVE DeepSeek hidden reasoning (between <think> tags)
-        clean = raw.split("<think>")[0].strip()
-        return clean
+        # 1. Remove <think> blocks entirely
+        if "<think>" in raw:
+            raw = raw.split("<think>")[0]
+
+        # 2. Remove any leftover tags
+        for tag in ["</think>", "<response>", "</response>", "<final>", "</final>"]:
+            raw = raw.replace(tag, "")
+
+        # 3. Strip whitespace noise
+        return raw.strip()
 
     except Exception as e:
         return f"ERROR: {e}"

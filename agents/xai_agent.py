@@ -1,44 +1,33 @@
-import pandas as pd
-from core.llm import chat_completion
+# agents/xai_agent.py
 
+def explain_tradeoffs_llm(df, obj):
+    if df is None or len(df) == 0:
+        return "• No allocation possible due to missing or invalid parameters."
 
-def explain_tradeoffs_llm(results_df: pd.DataFrame, objective_value):
-    """
-    Generates a short LLM explanation of the optimization output.
-    Always safe — even if results_df is empty or objective_value is None.
-    """
+    p = df.iloc[0]
 
-    # Safety: convert empty results to a simple string
-    if results_df is None or len(results_df) == 0:
-        table_text = "No allocation results. Possibly zero demand or zero inventory."
+    shipped = p["Shipped"]
+    demand = p["Demand"]
+    inv = p["Inventory"]
+    short = p["Shortfall"]
+
+    bullets = []
+
+    if shipped >= demand:
+        bullets.append("• Demand is fully satisfied.")
     else:
-        # Only show a compact preview to avoid flooding the model
-        table_text = results_df.head(10).to_string(index=False)
+        bullets.append(f"• Only {shipped}/{demand} units shipped → shortfall of {short}.")
 
-    # Safety: objective_value may be None
-    obj_text = "None" if objective_value is None else f"{objective_value:.2f}"
+    if inv < demand:
+        bullets.append("• Inventory is lower than demand → stockout risk.")
+    else:
+        bullets.append("• Inventory is sufficient to cover demand.")
 
-    prompt = f"""
-You are a supply-chain analyst AI.
+    if short > 0:
+        bullets.append("• Shortfall adds penalty to objective value.")
+    else:
+        bullets.append("• No shortfall → minimal penalty.")
 
-Given the following optimization output:
+    bullets.append(f"• Objective value: {round(obj,2)}")
 
-Objective Value: {obj_text}
-
-Top 10 rows of allocation results:
-{table_text}
-
-Explain the trade-offs between:
-- cost
-- demand vs inventory
-- fulfillment speed
-- and any constraints that limit allocation.
-
-Write a clear, concise explanation (6-10 sentences). 
-"""
-
-    try:
-        response = chat_completion(prompt)
-        return response
-    except Exception as e:
-        return f"[XAI Error] {e}"
+    return "\n".join(bullets)

@@ -1,153 +1,137 @@
-import os
-import json
+# app/main.py
 import pandas as pd
+import json
 
-from core.utils import list_csv_files, normalize_columns
-from agents.schema_agent import detect_schema
+from app.config import COMBINED_DATASET
 from agents.extraction_agent import extract_parameters
+from agents.retrieval_agent import find_product_exact
+from agents.icl_agent import estimate_missing_with_icl
 from agents.optimizer_agent import run_optimization
 from agents.xai_agent import explain_tradeoffs_llm
+from agents.interpretation_agent import interpret_query      # ✅ NEW
 from core.llm import chat_completion
 
 
-UPLOAD_DIR = "data/uploads"
+# ------------------------------------------------------------
+# Load combined dataset
+# ------------------------------------------------------------
+def load_combined():
+    return pd.read_csv(COMBINED_DATASET)
 
 
-# ---------------------------
-# Load all uploaded CSVs
-# ---------------------------
-def load_csvs():
-    print("📥 Loading CSV files...")
-    csv_paths = list_csv_files(UPLOAD_DIR)
 
-    dfs = {}
-    for path in csv_paths:
-        print(f"→ Reading {path}")
-        df = pd.read_csv(path)
-        df = normalize_columns(df)
-        dfs[os.path.basename(path)] = df
+# ------------------------------------------------------------
+# Generic / no-product answers
+# ------------------------------------------------------------
+def smart_generic_answer(extracted):
 
-    return dfs
+    # Highest demand product
+    p = max(extracted["demand"], key=extracted["demand"].get)
+    d = extracted["demand"][p]
+    inv = extracted["inventory"].get(p, 0)
 
-
-# ---------------------------
-# Clean DeepSeek output → extract JSON safely
-# ---------------------------
-def extract_json(text):
-    """
-    Removes all garbage around JSON and returns dict.
-    Prevents 99% of LLM parsing failures.
-    """
-    if text is None:
-        return None
-
-    try:
-        # keep only text inside outermost {...}
-        start = text.find("{")
-        end = text.rfind("}")
-        json_str = text[start:end+1]
-        return json.loads(json_str)
-    except:
-        return None
-
-
-# ---------------------------
-# One-shot optimization run
-# ---------------------------
-def run_pipeline_once(dfs):
-    schema = detect_schema(dfs)
-    params = extract_parameters(dfs, schema)
-
-    obj, results_df = run_optimization(
-        params["costs"], params["inventory"],
-        params["demand"], params["fulfillment"]
+    return (
+        f"• Highest demand product: **{p}**\n"
+        f"• Demand: {d}\n"
+        f"• Inventory: {inv}\n"
+        f"• Suggestion: Increase stock or reduce lead time."
     )
 
-    xai = explain_tradeoffs_llm(results_df, obj)
-    return xai, results_df
 
 
-# ---------------------------
-# LLM-driven Question Answering
-# ---------------------------
-def answer_query(user_query, dfs):
-    print("\n🤖 Understanding your question...")
-
-    intent_prompt = f"""
-Interpret this supply-chain question:
-
-\"{user_query}\"
-
-Return ONLY valid JSON:
-{{
- "product": "<product or unknown>",
- "intent": "<demand | inventory | cost | fulfillment | optimize | unknown>",
- "notes": "<short reasoning>"
-}}
-"""
-
-    raw = chat_completion(intent_prompt)
-    info = extract_json(raw)
-
-    if info is None:
-        return "❌ Could not parse your question."
-
-    product = info.get("product", "unknown").strip()
-
-    if product.lower() == "unknown":
-        return "❌ I could not find the product name in your question."
-
-    # --- LLM estimation of missing parameters ---
-    est_prompt = f"""
-Estimate supply-chain parameters for product: "{product}".
-
-Return ONLY JSON:
-{{
- "cost": 1.5,
- "inventory": 10,
- "demand": 20,
- "fulfillment": 5
-}}
-"""
-
-    est_raw = chat_completion(est_prompt)
-    est = extract_json(est_raw)
-
-    if est is None:
-        return "❌ LLM failed to estimate values."
-
-    # build dicts for single-product optimization
-    cost = {product: float(est["cost"])}
-    inventory = {product: float(est["inventory"])}
-    demand = {product: float(est["demand"])}
-    fulfill = {product: float(est["fulfillment"])}
-
-    obj, df = run_optimization(cost, inventory, demand, fulfill)
-    xai = explain_tradeoffs_llm(df, obj)
-
-    return f"📌 Product: {product}\n\n{xai}"
+# ------------------------------------------------------------
+# What-if scenario basic handler
+# ------------------------------------------------------------
+def smart_what_if():
+    return (
+        "• This is a what-if scenario.\n"
+        "• Examples you can ask:\n"
+        "  - What if demand rises by 20% for <product>?\n"
+        "  - What if inventory drops for <product>?\n"
+        "  - What if cost decreases for <product>?\n"
+        "• Specify a product and % change for simulation."
+    )
 
 
-# ---------------------------
+
+# ------------------------------------------------------------
+# Main answering logic
+# ------------------------------------------------------------
+def answer(q, extracted):
+
+    info = interpret_query(q)       # ✅ USING NEW AGENT
+    if not info:
+        return "Could not understand your query."
+
+    product = info.get("product", "")
+    intent = info.get("intent", "generic")
+
+    # -----------------------------
+    # GENERIC (no product required)
+    # -----------------------------
+    if intent == "generic" and (not product or product == "unknown"):
+        return smart_generic_answer(extracted)
+
+    # -----------------------------
+    # WHAT-IF branch
+    # -----------------------------
+    if intent == "what_if":
+        return smart_what_if()
+
+    # -----------------------------
+    # Product required from now on
+    # -----------------------------
+    if not product or product == "unknown":
+        return "Please specify a product."
+
+    # -----------------------------
+    # Retrieve recorded values
+    # -----------------------------
+    found = find_product_exact(product, extracted)
+
+    # -----------------------------
+    # Fill missing with ICL
+    # -----------------------------
+    params = estimate_missing_with_icl(product, found or {})
+    params["name"] = product
+
+    # -----------------------------
+    # Direct info request
+    # -----------------------------
+    if intent in ["inventory", "demand", "cost", "fulfillment"]:
+        return (
+            f"• Product: {product}\n"
+            f"• Cost: {params['cost']}\n"
+            f"• Inventory: {params['inventory']}\n"
+            f"• Demand: {params['demand']}\n"
+            f"• Fulfillment days: {params['fulfillment']}"
+        )
+
+    # -----------------------------
+    # Optimization path
+    # -----------------------------
+    obj, df = run_optimization(params)
+    return explain_tradeoffs_llm(df, obj)
+
+
+
+# ------------------------------------------------------------
 # MAIN LOOP
-# ---------------------------
+# ------------------------------------------------------------
 def main():
-    dfs = load_csvs()
+    df = load_combined()
 
-    print("\n🎯 OptiGuide Ready.")
-    print("Ask any supply-chain question (type 'exit' to quit).\n")
+    print("\n🔍 Extracting parameters from combined dataset...\n")
+    extracted = extract_parameters(df)
+
+    print("OptiGuide Ready.\n")
 
     while True:
-        query = input("❓ Query: ").strip()
-        if query.lower() == "exit":
-            print("👋 Exiting.")
+        q = input("Query: ").strip()
+        if q.lower() == "exit":
             break
+        print(answer(q, extracted))
 
-        try:
-            answer = answer_query(query, dfs)
-            print("\n📘 Answer:\n", answer, "\n")
-        except Exception as e:
-            print(f"❌ Error: {e}")
 
 
 if __name__ == "__main__":
