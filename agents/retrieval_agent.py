@@ -1,32 +1,26 @@
-def find_product_exact(product, extracted):
+# agents/retrieval_agent.py
+from typing import Optional, Dict
+
+def find_product_exact(product: str, extracted: Dict):
     """
-    extracted = {
-        "costs": {...},
-        "inventory": {...},
-        "demand": {...},
-        "fulfillment": {...}
-    }
-
-    Returns dict of found fields, or None.
+    Accepts:
+      - product: product string (raw from LLM)
+      - extracted: dict with keys 'costs','inventory','demand','fulfillment'
+    Returns dict of found fields (subset) or None.
     """
+    if not product or not extracted:
+        return None
 
-    p = product.strip().lower()
-    out = {}
+    key = product.strip().lower()
+    # exact match (keys in extracted are already normalized lower)
+    found = {}
+    if key in extracted.get("costs", {}):
+        found["cost"] = extracted["costs"][key]
+    if key in extracted.get("inventory", {}):
+        found["inventory"] = extracted["inventory"][key]
+    if key in extracted.get("demand", {}):
+        found["demand"] = extracted["demand"][key]
+    if key in extracted.get("fulfillment", {}):
+        found["fulfillment"] = extracted["fulfillment"][key]
 
-    for k, v in extracted["costs"].items():
-        if k.lower() == p:
-            out["cost"] = v
-
-    for k, v in extracted["inventory"].items():
-        if k.lower() == p:
-            out["inventory"] = v
-
-    for k, v in extracted["demand"].items():
-        if k.lower() == p:
-            out["demand"] = v
-
-    for k, v in extracted["fulfillment"].items():
-        if k.lower() == p:
-            out["fulfillment"] = v
-
-    return out if out else None
+    return found if found else None

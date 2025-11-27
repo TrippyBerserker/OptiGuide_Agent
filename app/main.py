@@ -1,138 +1,112 @@
 # app/main.py
 import pandas as pd
 import json
-
+import difflib
 from app.config import COMBINED_DATASET
 from agents.extraction_agent import extract_parameters
 from agents.retrieval_agent import find_product_exact
 from agents.icl_agent import estimate_missing_with_icl
 from agents.optimizer_agent import run_optimization
 from agents.xai_agent import explain_tradeoffs_llm
-from agents.interpretation_agent import interpret_query      # ✅ NEW
+from agents.interpretation_agent import interpret_query
 from core.llm import chat_completion
 
-
-# ------------------------------------------------------------
-# Load combined dataset
-# ------------------------------------------------------------
+# load combined CSV
 def load_combined():
     return pd.read_csv(COMBINED_DATASET)
 
+# fuzzy match product name to known product list
+def fuzzy_match(product_raw: str, product_list):
+    if not product_raw:
+        return None
+    pr = product_raw.strip().lower()
+    if pr in product_list:
+        return pr
+    # try substring match
+    for p in product_list:
+        if pr in p or p in pr:
+            return p
+    # difflib fallback
+    best = difflib.get_close_matches(pr, product_list, n=1, cutoff=0.6)
+    return best[0] if best else None
 
+# handle what-if modifications: returns modified params dict
+def apply_whatif(base_params, field, change_pct):
+    p = base_params.copy()
+    if field not in ["cost", "inventory", "demand"]:
+        return p
+    try:
+        change = float(change_pct) / 100.0
+    except:
+        change = 0.0
+    p[field] = p.get(field, 0) * (1 + change)
+    return p
 
-# ------------------------------------------------------------
-# Generic / no-product answers
-# ------------------------------------------------------------
-def smart_generic_answer(extracted):
-
-    # Highest demand product
-    p = max(extracted["demand"], key=extracted["demand"].get)
-    d = extracted["demand"][p]
-    inv = extracted["inventory"].get(p, 0)
-
-    return (
-        f"• Highest demand product: **{p}**\n"
-        f"• Demand: {d}\n"
-        f"• Inventory: {inv}\n"
-        f"• Suggestion: Increase stock or reduce lead time."
-    )
-
-
-
-# ------------------------------------------------------------
-# What-if scenario basic handler
-# ------------------------------------------------------------
-def smart_what_if():
-    return (
-        "• This is a what-if scenario.\n"
-        "• Examples you can ask:\n"
-        "  - What if demand rises by 20% for <product>?\n"
-        "  - What if inventory drops for <product>?\n"
-        "  - What if cost decreases for <product>?\n"
-        "• Specify a product and % change for simulation."
-    )
-
-
-
-# ------------------------------------------------------------
-# Main answering logic
-# ------------------------------------------------------------
-def answer(q, extracted):
-
-    info = interpret_query(q)       # ✅ USING NEW AGENT
+def answer(query, extracted):
+    info = interpret_query(query)  # returns keys product,intent,field,change
     if not info:
-        return "Could not understand your query."
+        return "Sorry, I couldn't parse that."
 
-    product = info.get("product", "")
+    raw_product = info.get("product")
+    product_list = set(extracted.get("demand", {}).keys()) | set(extracted.get("inventory", {}).keys()) | set(extracted.get("costs", {}).keys())
+    product_list = [p.lower() for p in product_list]
+
+    product = fuzzy_match(raw_product or "", product_list)
+
     intent = info.get("intent", "generic")
 
-    # -----------------------------
-    # GENERIC (no product required)
-    # -----------------------------
-    if intent == "generic" and (not product or product == "unknown"):
-        return smart_generic_answer(extracted)
+    # generic summary
+    if intent == "generic" and not product:
+        # simple one-line summary
+        top = max(extracted["demand"], key=extracted["demand"].get)
+        return f"Top product: {top} (demand {int(extracted['demand'][top])})."
 
-    # -----------------------------
-    # WHAT-IF branch
-    # -----------------------------
+    # what-if handling
     if intent == "what_if":
-        return smart_what_if()
+        # attempt to detect target product from LLM output
+        if not product:
+            return "For what-if please specify a product clearly."
+        found = find_product_exact(product, extracted) or {}
+        base = estimate_missing_with_icl(product, found)
+        field = info.get("field")
+        change = info.get("change")
+        sim = apply_whatif(base, field, change)
+        # run optimization on simulated params
+        sim["name"] = product
+        obj, df = run_optimization(sim)
+        return explain_tradeoffs_llm(df, obj)
 
-    # -----------------------------
-    # Product required from now on
-    # -----------------------------
-    if not product or product == "unknown":
-        return "Please specify a product."
+    # product required for other intents
+    if not product:
+        return "Please specify a product name."
 
-    # -----------------------------
-    # Retrieve recorded values
-    # -----------------------------
-    found = find_product_exact(product, extracted)
-
-    # -----------------------------
-    # Fill missing with ICL
-    # -----------------------------
-    params = estimate_missing_with_icl(product, found or {})
+    # retrieve recorded values
+    found = find_product_exact(product, extracted) or {}
+    params = estimate_missing_with_icl(product, found)
     params["name"] = product
 
-    # -----------------------------
-    # Direct info request
-    # -----------------------------
     if intent in ["inventory", "demand", "cost", "fulfillment"]:
-        return (
-            f"• Product: {product}\n"
-            f"• Cost: {params['cost']}\n"
-            f"• Inventory: {params['inventory']}\n"
-            f"• Demand: {params['demand']}\n"
-            f"• Fulfillment days: {params['fulfillment']}"
-        )
+        return (f"{product} → Cost: {params['cost']}, Inventory: {int(params['inventory'])}, "
+                f"Demand: {int(params['demand'])}, Fulfillment days: {params['fulfillment']}")
 
-    # -----------------------------
-    # Optimization path
-    # -----------------------------
+    # optimize / default: run optimization
     obj, df = run_optimization(params)
     return explain_tradeoffs_llm(df, obj)
 
-
-
-# ------------------------------------------------------------
-# MAIN LOOP
-# ------------------------------------------------------------
 def main():
     df = load_combined()
-
     print("\n🔍 Extracting parameters from combined dataset...\n")
     extracted = extract_parameters(df)
-
     print("OptiGuide Ready.\n")
-
     while True:
         q = input("Query: ").strip()
-        if q.lower() == "exit":
+        if q.lower() in ("exit", "quit"):
             break
-        print(answer(q, extracted))
-
-
+        try:
+            out = answer(q, extracted)
+            print(out, "\n")
+        except Exception as e:
+            print("Error:", e, "\n")
 
 if __name__ == "__main__":
     main()
