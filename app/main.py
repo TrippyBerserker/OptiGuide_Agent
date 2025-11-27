@@ -1,4 +1,5 @@
 import os
+import json
 import pandas as pd
 
 from core.utils import list_csv_files, normalize_columns
@@ -30,25 +31,44 @@ def load_csvs():
 
 
 # ---------------------------
-# One-shot pipeline (auto-optimization)
+# Clean DeepSeek output → extract JSON safely
+# ---------------------------
+def extract_json(text):
+    """
+    Removes all garbage around JSON and returns dict.
+    Prevents 99% of LLM parsing failures.
+    """
+    if text is None:
+        return None
+
+    try:
+        # keep only text inside outermost {...}
+        start = text.find("{")
+        end = text.rfind("}")
+        json_str = text[start:end+1]
+        return json.loads(json_str)
+    except:
+        return None
+
+
+# ---------------------------
+# One-shot optimization run
 # ---------------------------
 def run_pipeline_once(dfs):
     schema = detect_schema(dfs)
     params = extract_parameters(dfs, schema)
 
-    costs = params["costs"]
-    inventory = params["inventory"]
-    demand = params["demand"]
-    fulfillment = params["fulfillment"]
-
-    obj, results_df = run_optimization(costs, inventory, demand, fulfillment)
+    obj, results_df = run_optimization(
+        params["costs"], params["inventory"],
+        params["demand"], params["fulfillment"]
+    )
 
     xai = explain_tradeoffs_llm(results_df, obj)
     return xai, results_df
 
 
 # ---------------------------
-# Interactive LLM Q/A
+# LLM-driven Question Answering
 # ---------------------------
 def answer_query(user_query, dfs):
     print("\n🤖 Understanding your question...")
@@ -58,20 +78,18 @@ Interpret this supply-chain question:
 
 \"{user_query}\"
 
-Return JSON:
+Return ONLY valid JSON:
 {{
  "product": "<product or unknown>",
  "intent": "<demand | inventory | cost | fulfillment | optimize | unknown>",
- "notes": "<reasoning>"
+ "notes": "<short reasoning>"
 }}
 """
 
-    parsed = chat_completion(intent_prompt)
+    raw = chat_completion(intent_prompt)
+    info = extract_json(raw)
 
-    import json
-    try:
-        info = json.loads(parsed)
-    except:
+    if info is None:
         return "❌ Could not parse your question."
 
     product = info.get("product", "unknown").strip()
@@ -79,25 +97,26 @@ Return JSON:
     if product.lower() == "unknown":
         return "❌ I could not find the product name in your question."
 
-    # LLM estimation of missing values
+    # --- LLM estimation of missing parameters ---
     est_prompt = f"""
-Estimate supply-chain parameters for product: "{product}"
+Estimate supply-chain parameters for product: "{product}".
 
-Return JSON:
+Return ONLY JSON:
 {{
  "cost": 1.5,
  "inventory": 10,
  "demand": 20,
  "fulfillment": 5
 }}
-Use realistic retail-like values.
 """
 
-    try:
-        est = json.loads(chat_completion(est_prompt))
-    except:
+    est_raw = chat_completion(est_prompt)
+    est = extract_json(est_raw)
+
+    if est is None:
         return "❌ LLM failed to estimate values."
 
+    # build dicts for single-product optimization
     cost = {product: float(est["cost"])}
     inventory = {product: float(est["inventory"])}
     demand = {product: float(est["demand"])}
@@ -128,7 +147,7 @@ def main():
             answer = answer_query(query, dfs)
             print("\n📘 Answer:\n", answer, "\n")
         except Exception as e:
-            print("❌ Error:", e)
+            print(f"❌ Error: {e}")
 
 
 if __name__ == "__main__":
