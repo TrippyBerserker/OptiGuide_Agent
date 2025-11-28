@@ -1,4 +1,3 @@
-# agents/icl_agent.py
 import json
 from core.llm import chat_completion
 
@@ -30,6 +29,10 @@ Output:
 """
 
 def estimate_missing_with_icl(product: str, known: dict):
+    """
+    Uses in-context learning to estimate missing numerical values (cost, inventory, demand, fulfillment) 
+    for a given product based on existing 'known' data.
+    """
     prompt = f"""{FEWSHOT}
 
 Now estimate missing values for this product.
@@ -40,11 +43,13 @@ Return ONLY JSON with numeric values for keys: cost, inventory, demand, fulfillm
     raw = chat_completion(prompt)
 
     try:
+        # Find and extract the JSON block
         start = raw.find("{")
         end = raw.rfind("}") + 1
         json_str = raw[start:end]
         data = json.loads(json_str)
 
+        # Merge the LLM estimates with the original known data, converting to float/int
         final = {
             "cost": float(data.get("cost", known.get("cost", 0))),
             "inventory": float(data.get("inventory", known.get("inventory", 0))),
@@ -53,7 +58,7 @@ Return ONLY JSON with numeric values for keys: cost, inventory, demand, fulfillm
         }
         return final
     except Exception:
-        # fallback: fill missing with conservative defaults
+        # Fallback: fill missing with conservative defaults if LLM or parsing fails
         final = {
             "cost": float(known.get("cost", 1.0)),
             "inventory": float(known.get("inventory", 0.0)),

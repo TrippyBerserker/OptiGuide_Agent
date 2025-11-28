@@ -1,0 +1,18 @@
+Simple retrieval / single product:
+
+What is the demand for adidas brazuca 2017 official match ball?
+Show inventory for Nike Men's Free 5.0+ Running Shoe
+
+Optimization / allocation:
+
+Optimize allocation for Nike Men's Free 5.0+ Running Shoe
+Optimize allocation for adidas brazuca 2017 official match ball
+
+What-if scenarios:
+
+What if demand increases by 40% for adidas men's f10 messi trx fg soccer cleat?
+What if inventory decreases by 50% for Perfect Fitness Perfect Rip Deck?
+
+Also test generic:
+
+Give me a quick supply chain summary

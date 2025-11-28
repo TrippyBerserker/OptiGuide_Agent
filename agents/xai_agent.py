@@ -2,7 +2,7 @@
 def explain_tradeoffs_llm(df, obj):
     """
     Very short, single-line XAI output describing allocation.
-    Prefer simple English, no bullets.
+    NOTE: This is currently based on simple conditional logic, not LLM synthesis.
     """
     if df is None or len(df) == 0:
         return "No allocation possible (no demand or missing data)."
@@ -14,7 +14,7 @@ def explain_tradeoffs_llm(df, obj):
     shortfall = r.get("Shortfall", 0)
 
     if shipped >= demand:
-        return f"Demand met (shipped {int(shipped)}/{int(demand)}). Objective: {obj:.2f}."
+        return f"Demand met (shipped {int(shipped)}/{int(demand)})."
     if shipped == 0:
-        return f"No stock shipped ({int(shortfall)} units short). Objective: {obj:.2f}."
-    return f"Partial fulfillment ({int(shipped)}/{int(demand)} shipped, {int(shortfall)} short). Objective: {obj:.2f}."
+        return f"No stock shipped ({int(shortfall)} units short)."
+    return f"Partial fulfillment ({int(shipped)}/{int(demand)} shipped, {int(shortfall)} short)."
