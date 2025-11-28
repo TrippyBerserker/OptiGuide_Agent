@@ -12,6 +12,10 @@ from core.llm import chat_completion
 from typing import Dict, Any
 import math
 
+
+_extracted_cache=None
+
+
 # load combined CSV
 def load_combined():
     return pd.read_csv(COMBINED_DATASET)
@@ -167,7 +171,24 @@ def answer(query, extracted):
     return (f"--- OPTIMIZATION RESULT FOR {product.title()} ---\n"
             f"Result: {xai_summary}\n"
             f"Optimized Objective Value: ${obj:,.2f}")
+def run_pipeline(question: str) -> str:
+    """
+    Called from Flask chatbot.
+    Uses the same logic as the CLI main() loop.
+    """
+    global _extracted_cache
 
+    if _extracted_cache is None:
+        df = load_combined()
+        _extracted_cache = extract_parameters(df)
+
+    try:
+        reply = answer(question, _extracted_cache)
+    except Exception as e:
+        reply = f"Error while answering your query: {e}"
+
+    return reply
+...
 
 def main():
     df = load_combined()
