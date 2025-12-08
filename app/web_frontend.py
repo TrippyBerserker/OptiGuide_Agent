@@ -1,241 +1,4 @@
-# # app/web_frontend.py
-# import os
-# import glob
-# from flask import Flask, request, redirect, url_for, render_template_string, send_from_directory, jsonify
-# import pandas as pd
-# from app.config import BASE_DIR, COMBINED_DATASET
-# from agents.schema_agent import detect_schema
-# from agents.extraction_agent import extract_parameters
-# from app.main import answer  # uses your existing answer() function
-# import traceback
-
-# app = Flask(__name__)
-# UPLOAD_FOLDER = os.path.join(BASE_DIR, "data", "combined")
-# os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-# app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-# app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
-
-# # --- replace INDEX_HTML with this version (in app/web_frontend.py) ---
-# INDEX_HTML = """
-# <!doctype html>
-# <title>OptiGuide - Upload & Chat (temp)</title>
-# <h2>Upload CSV to data/combined</h2>
-# <form id="upload-form" action="/upload" method=post enctype=multipart/form-data>
-#   <input type=file name=file accept=".csv">
-#   <input type=submit value=Upload>
-# </form>
-# <div id="upload-msg" style="margin-top:8px;color:green"></div>
-# <hr>
-# <h2>System Summary</h2>
-# <pre id="status" style="white-space:pre-wrap;background:#f0f0f0;padding:10px;border-radius:6px">Loading...</pre>
-# <hr>
-# <h2>Chat</h2>
-# <form id="chat-form" onsubmit="event.preventDefault(); sendQuery();">
-#   <input id="query" name="query" style="width:60%" placeholder="Ask a supply-chain question...">
-#   <button type="submit">Send</button>
-# </form>
-# <pre id="response" style="white-space:pre-wrap;background:#f6f6f6;padding:10px;border-radius:6px"></pre>
-
-# <script>
-# async function fetchStatus(){
-#   try {
-#     const resp = await fetch("/status");
-#     const j = await resp.json();
-#     console.log("STATUS RESPONSE:", j);
-#     document.getElementById("status").innerText =
-#       j.status || j.error || "No status returned.";
-#   } catch (err) {
-#     document.getElementById("status").innerText = "Error fetching status: " + err;
-#   }
-# }
-
-# async function sendQuery(){
-#   try {
-#     const q = document.getElementById("query").value;
-#     const resp = await fetch("/query", {
-#       method: "POST",
-#       headers: {"Content-Type":"application/json"},
-#       body: JSON.stringify({query: q})
-#     });
-#     const data = await resp.json();
-#     document.getElementById("response").innerText = data.response;
-#   } catch (err) {
-#     document.getElementById("response").innerText = "Query error: " + err;
-#   }
-# }
-
-# document.getElementById("upload-form").onsubmit = async function(e){
-#   e.preventDefault();
-#   const f = e.target.file.files[0];
-#   if(!f){ alert("Select a CSV file first"); return; }
-
-#   const fd = new FormData();
-#   fd.append("file", f);
-
-#   const resp = await fetch("/upload", { method: "POST", body: fd });
-#   const j = await resp.json();
-#   document.getElementById("upload-msg").innerText = j.message || "Upload done.";
-
-#   // Reload status section
-#   fetchStatus();
-# };
-
-# window.addEventListener("load", () => {
-#   fetchStatus();
-# });
-# </script>
-
-# """
-
-
-# def rebuild_combined_csv():
-#     """
-#     Concatenate all CSVs in data/combined, attempt to normalize using schema_agent,
-#     and save as COMBINED_DATASET path.
-#     """
-#     csv_files = glob.glob(os.path.join(app.config["UPLOAD_FOLDER"], "*.csv"))
-#     if not csv_files:
-#         return False, "No CSV files found in data/combined."
-
-#     # Read all, coerce to DataFrame (ignore errors)
-#     dfs = []
-#     for f in csv_files:
-#         try:
-#             df = pd.read_csv(f)
-#             dfs.append(df)
-#         except Exception as e:
-#             # skip bad files
-#             print(f"Skipping {f}: {e}")
-
-#     if not dfs:
-#         return False, "No readable CSV files."
-
-#     combined = pd.concat(dfs, ignore_index=True, sort=False)
-
-#     # Normalize columns (lowercase/underscores) to help detect schema
-#     from core.utils import normalize_columns
-#     combined = normalize_columns(combined)
-
-#     # Use schema_agent to detect which columns map to canonical ones
-#     from agents.schema_agent import detect_schema
-#     mapping = detect_schema(combined)
-
-#     # If mapping identifies columns, rename them to canonical names
-#     rename_map = {}
-#     for canonical, actual_col in mapping.items():
-#         if actual_col and actual_col in combined.columns:
-#             rename_map[actual_col] = canonical
-
-#     if rename_map:
-#         combined = combined.rename(columns=rename_map)
-
-#     # Ensure COMBINED_DATASET directory exists
-#     os.makedirs(os.path.dirname(COMBINED_DATASET), exist_ok=True)
-
-#     # Save combined CSV (overwrite)
-#     combined.to_csv(COMBINED_DATASET, index=False)
-#     return True, f"Combined dataset saved with columns: {', '.join(combined.columns)}"
-
-# @app.route("/")
-# def index():
-#     return render_template_string(INDEX_HTML)
-
-# # --- modify /upload endpoint to return JSON (replace existing upload_file) ---
-# @app.route("/upload", methods=["POST"])
-# def upload_file():
-#     try:
-#         if "file" not in request.files:
-#             return jsonify({"message": "No file part"}), 400
-#         file = request.files["file"]
-#         if file.filename == "":
-#             return jsonify({"message": "No selected file"}), 400
-#         filename = file.filename
-#         save_to = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-#         file.save(save_to)
-#         ok, msg = rebuild_combined_csv()
-#         if ok:
-#             return jsonify({"message": f"Upload complete. {msg}."})
-#         else:
-#             return jsonify({"message": f"Upload saved but rebuild failed: {msg}"}), 500
-#     except Exception as e:
-#         traceback.print_exc()
-#         return jsonify({"message": f"Upload failed: {e}"}), 500
-
-    
-# # --- add a new /status endpoint in app/web_frontend.py -- just above the existing @app.route("/query") ---
-# @app.route("/status", methods=["GET"])
-# def status():
-#     """
-#     Returns a short extraction summary (same info printed in server log)
-#     so the frontend can display it. This runs extraction on current combined CSV.
-#     """
-#     try:
-#         if not os.path.exists(COMBINED_DATASET):
-#             return jsonify({"error": "No combined dataset found. Upload CSVs first."})
-#         df = pd.read_csv(COMBINED_DATASET)
-#         extracted = extract_parameters(df)
-#         # create a compact summary string
-#         def preview_map(m):
-#             if not m:
-#                 return "{}"
-#             items = list(m.items())[:5]
-#             return ", ".join([f"{k}: {v}" for k, v in items]) + ( " ..." if len(m)>5 else "")
-
-#         summary = (
-#             f"Costs: {preview_map(extracted.get('costs'))}\n"
-#             f"Inventory: {preview_map(extracted.get('inventory'))}\n"
-#             f"Demand: {preview_map(extracted.get('demand'))}\n"
-#             f"Fulfillment: {preview_map(extracted.get('fulfillment'))}\n"
-#         )
-#         return jsonify({"status": summary})
-#     except Exception as e:
-#         import traceback as tb
-#         tb.print_exc()
-#         return jsonify({"error": str(e)}), 500
-
-
-# @app.route("/query", methods=["POST"])
-# def query():
-#     try:
-#         payload = request.get_json() or {}
-#         q = payload.get("query", "").strip()
-#         print(f"[DEBUG] Received /query request: '{q}'")
-
-#         if not q:
-#             print("[DEBUG] Empty query received, returning prompt.")
-#             return jsonify({"response": "Please enter a query."})
-
-#         if not os.path.exists(COMBINED_DATASET):
-#             print("[DEBUG] No combined dataset present.")
-#             return jsonify({"response": "No combined dataset found. Upload CSVs first."})
-
-#         df = pd.read_csv(COMBINED_DATASET)
-#         extracted = extract_parameters(df)
-
-#         try:
-#             resp = answer(q, extracted)
-#             print(f"[DEBUG] answer() returned: {resp}")
-#             return jsonify({"response": str(resp)})
-#         except Exception as inner_e:
-#             import traceback as tb
-#             tb.print_exc()
-#             fallback = f"Sorry — internal processing failed: {inner_e}. (LLM/solver may be down)"
-#             print(f"[DEBUG] Fallback reply: {fallback}")
-#             return jsonify({"response": fallback, "error": str(inner_e)}), 200
-
-#     except Exception as e:
-#         import traceback as tb
-#         tb.print_exc()
-#         print(f"[DEBUG] Unhandled error in /query: {e}")
-#         return jsonify({"response": "Server error while handling your request.", "error": str(e)}), 500
-
-
-# if __name__ == "__main__":
-#     app.run(host="0.0.0.0", port=5001, debug=True)
-# app/web_frontend.py
-
 import os
-import glob
 import traceback
 import pandas as pd
 from flask import (
@@ -249,54 +12,117 @@ from app.main import answer  # your existing LLM pipeline
 
 app = Flask(__name__)
 
+# Folder where datasets live
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "data", "combined")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
 
+# Path for the user override dataset
+TEST_DATASET = os.path.join(UPLOAD_FOLDER, "test.csv")
+
+# --------- CACHING (optimization #1) ----------
+ACTIVE_DATASET_PATH = None
+ACTIVE_DATASET_MTIME = None
+ACTIVE_EXTRACTED = None
+
+
+def invalidate_cache():
+    """Invalidate cached extracted data."""
+    global ACTIVE_DATASET_PATH, ACTIVE_DATASET_MTIME, ACTIVE_EXTRACTED
+    ACTIVE_DATASET_PATH = None
+    ACTIVE_DATASET_MTIME = None
+    ACTIVE_EXTRACTED = None
+
+
+def get_active_dataset_path():
+    """
+    If user uploaded a dataset, use test.csv.
+    Otherwise, fall back to the default combined_dataset.csv.
+    """
+    if os.path.exists(TEST_DATASET):
+        return TEST_DATASET
+    return COMBINED_DATASET
+
+
+def load_or_get_extracted():
+    """
+    Read and extract parameters from the active dataset, with caching.
+
+    - If same dataset file + unchanged mtime -> reuse cached extracted maps
+    - Otherwise -> reload CSV, run extract_parameters, update cache
+    """
+    global ACTIVE_DATASET_PATH, ACTIVE_DATASET_MTIME, ACTIVE_EXTRACTED
+
+    dataset_path = get_active_dataset_path()
+    if not os.path.exists(dataset_path):
+        return None, dataset_path
+
+    mtime = os.path.getmtime(dataset_path)
+
+    if (
+        ACTIVE_DATASET_PATH == dataset_path
+        and ACTIVE_DATASET_MTIME == mtime
+        and ACTIVE_EXTRACTED is not None
+    ):
+        # Use cached extraction
+        return ACTIVE_EXTRACTED, dataset_path
+
+    # (Re)load and extract
+    df = pd.read_csv(dataset_path)
+    extracted = extract_parameters(df)
+
+    ACTIVE_DATASET_PATH = dataset_path
+    ACTIVE_DATASET_MTIME = mtime
+    ACTIVE_EXTRACTED = extracted
+
+    return extracted, dataset_path
+
 
 # -----------------------------------------------------
-# Combine all uploaded CSV files into one dataset
+# Preprocess an uploaded CSV and save as test.csv
+# (optimizations #1 and #2)
 # -----------------------------------------------------
-def rebuild_combined_csv():
-    csv_files = glob.glob(os.path.join(app.config["UPLOAD_FOLDER"], "*.csv"))
-    if not csv_files:
-        return False, "No CSV files found in data/combined."
-
-    dfs = []
-    for file in csv_files:
-        try:
-            df = pd.read_csv(file)
-            dfs.append(df)
-        except Exception as e:
-            print(f"Skipping {file}: {e}")
-
-    if not dfs:
-        return False, "No valid CSV files to combine."
-
-    combined = pd.concat(dfs, ignore_index=True, sort=False)
-
-    # Normalize columns
+def save_uploaded_as_test(csv_path: str):
+    """
+    Load a single uploaded CSV, normalize columns, (optionally) detect schema
+    and rename to canonical column names, then save as test.csv.
+    """
     from core.utils import normalize_columns
-    combined = normalize_columns(combined)
 
-    # Schema mapping
-    mapping = detect_schema(combined)
+    df = pd.read_csv(csv_path)
+    df = normalize_columns(df)
 
-    rename_map = {}
-    for canonical, actual in mapping.items():
-        if actual and actual in combined.columns:
-            rename_map[actual] = canonical
+    # Optimization #2: if dataset already has canonical cols, skip schema detection
+    canonical_cols = {"product", "inventory", "cost", "demand", "fulfillment"}
+    cols_set = set(df.columns)
 
-    if rename_map:
-        combined = combined.rename(columns=rename_map)
+    if canonical_cols.issubset(cols_set):
+        # Already canonical: no need to call schema_agent
+        processed_df = df
+    else:
+        # Use schema_agent to map columns to canonical names
+        mapping = detect_schema(df)
+        rename_map = {}
+        for canonical, actual in mapping.items():
+            if actual and actual in df.columns:
+                rename_map[actual] = canonical
 
-    os.makedirs(os.path.dirname(COMBINED_DATASET), exist_ok=True)
-    combined.to_csv(COMBINED_DATASET, index=False)
+        if rename_map:
+            processed_df = df.rename(columns=rename_map)
+        else:
+            processed_df = df  # fallback: keep as-is
 
-    return True, f"Combined dataset saved. Columns: {', '.join(combined.columns)}"
+    # Ensure folder exists and save as test.csv (override semantics)
+    os.makedirs(os.path.dirname(TEST_DATASET), exist_ok=True)
+    processed_df.to_csv(TEST_DATASET, index=False)
 
+    # Invalidate cache so next query reloads
+    invalidate_cache()
+
+    return True, f"Uploaded dataset saved as test.csv. Columns: {', '.join(processed_df.columns)}"
+
+from flask import session
 
 # -----------------------------------------------------
 # Route: Home (ChatGPT-style UI)
@@ -319,15 +145,22 @@ def upload_file():
         if f.filename == "":
             return jsonify({"message": "No selected file"}), 400
 
-        save_path = os.path.join(app.config["UPLOAD_FOLDER"], f.filename)
-        f.save(save_path)
+        # Temporarily save uploaded file (original name not important)
+        temp_path = os.path.join(app.config["UPLOAD_FOLDER"], "_upload_temp.csv")
+        f.save(temp_path)
 
-        ok, msg = rebuild_combined_csv()
+        ok, msg = save_uploaded_as_test(temp_path)
+
+        # Remove temp file; processed data now in test.csv
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
 
         if not ok:
             return jsonify({"message": msg}), 500
 
-        return jsonify({"message": f"Upload complete. {msg}"}), 200
+        return jsonify({"message": f"Upload complete. {msg} Using test.csv as active dataset."}), 200
 
     except Exception as e:
         traceback.print_exc()
@@ -346,11 +179,9 @@ def query():
         if not question:
             return jsonify({"response": "Please enter a query."})
 
-        if not os.path.exists(COMBINED_DATASET):
-            return jsonify({"response": "No dataset found. Upload a CSV first."})
-
-        df = pd.read_csv(COMBINED_DATASET)
-        extracted = extract_parameters(df)
+        extracted, dataset_path = load_or_get_extracted()
+        if extracted is None:
+            return jsonify({"response": "No dataset found. Upload a CSV or ensure combined_dataset.csv exists."})
 
         try:
             bot_reply = answer(question, extracted)
@@ -367,6 +198,5 @@ def query():
         }), 500
 
 
-# -----------------------------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
