@@ -16,7 +16,7 @@ import math
 _extracted_cache=None
 
 
-# load combined CSV
+# load combined CSV (used by CLI mode)
 def load_combined():
     return pd.read_csv(COMBINED_DATASET)
 
@@ -41,8 +41,6 @@ def generate_dynamic_summary(extracted: Dict[str, Dict[str, Any]]) -> str:
     
     # Filter out NaN/None values before summing
     clean_demand = [d for d in demand_map.values() if isinstance(d, (int, float)) and not math.isnan(d)]
-    
-    # CRITICAL FIX: Ensure we check 'i' for NaN when iterating over inventory_map values
     clean_inventory = [i for i in inventory_map.values() if isinstance(i, (int, float)) and not math.isnan(i)]
     
     total_demand = sum(clean_demand)
@@ -52,15 +50,19 @@ def generate_dynamic_summary(extracted: Dict[str, Dict[str, Any]]) -> str:
     non_zero_fulfillment_days = [d for d in fulfillment_map.values() if isinstance(d, (int, float)) and not math.isnan(d) and d > 0]
     avg_fulfillment = sum(non_zero_fulfillment_days) / len(non_zero_fulfillment_days) if non_zero_fulfillment_days else 0
     
-    # Find top product by demand (using the clean list keys for safety)
-    top_product_key = max(demand_map, key=demand_map.get)
-    top_product_demand = demand_map.get(top_product_key, 0)
+    # Find top product by demand
+    if demand_map:
+        top_product_key = max(demand_map, key=demand_map.get)
+        top_product_demand = demand_map.get(top_product_key, 0)
+        top_line = f"Top Performing Product (by Demand): {top_product_key.title()} ({top_product_demand:,.0f} units)"
+    else:
+        top_line = "Top Performing Product (by Demand): N/A"
 
     summary = (f"--- Comprehensive Supply Chain Summary ---\n"
                f"Total Demand Across All Products: {total_demand:,.0f} units\n"
                f"Total Inventory Available: {total_inventory:,.0f} units\n"
                f"Average Fulfillment Time: {avg_fulfillment:.1f} days\n"
-               f"Top Performing Product (by Demand): {top_product_key.title()} ({top_product_demand:,.0f} units)")
+               f"{top_line}")
     
     return summary
 
@@ -69,8 +71,10 @@ def answer(query, extracted):
     # Handle empty query immediately
     if not query.strip():
         return generate_dynamic_summary(extracted)
-        
-    info = interpret_query(query)  # returns keys product,intent,metric,operation,change
+
+    # ❗ No rule-based shortcuts here.
+    # All understanding goes through the interpretation agent (LLM).
+    info = interpret_query(query)  # returns keys: product, intent, metric, operation, change
     
     # Handle LLM failure to parse JSON gracefully
     if not info:
@@ -79,24 +83,46 @@ def answer(query, extracted):
     raw_product = info.get("product")
     intent = info.get("intent", "lookup")
     
-    # --- Generic Summary / Total Reporting (MUST BE CHECKED FIRST) ---
+    # --- Generic Summary / Total Reporting (no specific product) ---
     if raw_product is None and intent == "lookup":
         metric = info.get("metric")
         operation = info.get("operation")
-        
-        # Check for specific total/sum requests (e.g., "Total inventory")
+
+        # If the LLM has mapped a metric to one of our extracted maps and requested a sum:
+        # e.g. "total inventory", "sum demand", etc.
         if metric in extracted and operation == 'sum':
-            # Safely sum the metrics
-            clean_values = [v for v in extracted[metric].values() if isinstance(v, (int, float)) and not math.isnan(v)]
+            clean_values = [
+                v for v in extracted[metric].values()
+                if isinstance(v, (int, float)) and not math.isnan(v)
+            ]
             total = sum(clean_values)
             return f"Total {metric.replace('_', ' ').title()}: {total:,.0f} units."
-        
-        # Default to the comprehensive summary for general queries or unrecognized metrics
+
+        # If the LLM decided this is a max/min question (e.g., top/least by demand/inventory)
+        if metric in extracted and operation in ('max', 'min'):
+            metric_map = extracted[metric]
+            clean = {
+                k: v for k, v in metric_map.items()
+                if isinstance(v, (int, float)) and not math.isnan(v)
+            }
+            if not clean:
+                return f"No numeric values available for metric '{metric}'."
+
+            if operation == 'max':
+                best_key = max(clean, key=clean.get)
+                best_val = clean[best_key]
+                return f"Top product by {metric}: {best_key.title()} ({best_val:,.0f})."
+            else:
+                worst_key = min(clean, key=clean.get)
+                worst_val = clean[worst_key]
+                return f"Least product by {metric}: {worst_key.title()} ({worst_val:,.0f})."
+
+        # Default: fall back to a global summary if metric/operation are generic or not actionable
         return generate_dynamic_summary(extracted)
 
 
-    # --- Handle Product Queries ---
-    
+    # --- Handle Product-Specific Queries ---
+
     # 1. Attempt to retrieve data using the raw product name (fuzzy matching happens inside)
     found = find_product_data(raw_product, extracted) or {}
     
@@ -105,20 +131,18 @@ def answer(query, extracted):
     
     product = None
     
-    # Logic for determining the final product name for ICL/processing
+    # Logic for determining the final product name used downstream
     if is_product_specific:
         if canonical_product:
             # Case A: Found a match (e.g., "adadis" -> "adidas")
             product = canonical_product
         else:
-            # Case B: No match found, but a product was named (e.g., "fishing rod").
+            # Case B: No match found, but a product was named (e.g., "fishing rod")
             product = raw_product.strip().lower()
             found = {}
     
-    
     if not product:
-         return f"Could not process query. Interpretation Agent failed to identify a product for intent '{intent}'."
-
+        return f"Could not process query. Interpretation Agent failed to identify a product for intent '{intent}'."
 
     # --- Product-Specific Success: Data Preparation (ICL is run here for all product queries) ---
     params = estimate_missing_with_icl(product, found)
@@ -127,14 +151,13 @@ def answer(query, extracted):
     if is_product_specific and not canonical_product:
         print(f"(Note: Data for '{raw_product}' was estimated using ICL because no direct match was found.)")
 
-
     # --- WHAT-IF SCENARIO ---
     if intent == "what_if":
         field = info.get("metric")
         change = info.get("change")
         
         if field not in ['cost', 'inventory', 'demand'] or change is None:
-             return "Please specify a valid metric (cost, inventory, or demand) and a numeric percentage change for the what-if scenario."
+            return "Please specify a valid metric (cost, inventory, or demand) and a numeric percentage change for the what-if scenario."
 
         sim = apply_whatif(params, field, change)
         sim["name"] = product
@@ -154,7 +177,6 @@ def answer(query, extracted):
         if metric in params:
             value = params[metric]
             formatted_value = f"{value:,.2f}" if isinstance(value, (int, float)) else str(value)
-            
             return f"{product.title()} → {metric.replace('_', ' ').title()}: {formatted_value}"
         
         # Default detailed report
