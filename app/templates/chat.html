@@ -47,12 +47,12 @@
       background: #020617;
     }
     header h1 {
-      font-size: 1rem;
+      font-size: 1.5rem;
       font-weight: 600;
       color: #e5e7eb;
     }
     header span.sub {
-      font-size: 0.75rem;
+      font-size: 1rem;
       color: #6b7280;
     }
     .badge {
@@ -93,7 +93,7 @@
       max-width: 800px;
       padding: 0.75rem 1rem;
       border-radius: 0.75rem;
-      font-size: 0.9rem;
+      font-size: 1rem;
       line-height: 1.5;
     }
     .msg-user .msg-content {
@@ -106,10 +106,10 @@
     }
     .msg-bot .msg-content {
       background: #020617;
-      border: 1px solid #1d283a;
+      border: 1px solid #1c2026;
     }
     .msg-label {
-      font-size: 0.75rem;
+      font-size: 1rem;
       color: #9ca3af;
       margin-bottom: 0.2rem;
     }
@@ -143,9 +143,10 @@
       background: #020617;
       color: #e5e7eb;
       padding: 0.7rem 0.9rem;
-      font-size: 0.9rem;
+      font-size: 1rem;
       min-height: 46px;
       max-height: 130px;
+      max-width: 900px;
     }
     textarea:focus {
       outline: none;
@@ -160,7 +161,7 @@
       color: #f9fafb;
       font-weight: 600;
       cursor: pointer;
-      font-size: 0.9rem;
+      font-size: 1.3rem;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -180,7 +181,7 @@
       background: #020617;
       border-radius: 14px;
       padding: 16px;
-      font-size: 0.85rem;
+      font-size: 1rem;
       color: #e5e7eb;
     }
     .drop-area {
@@ -197,16 +198,16 @@
     }
     .drop-text {
       color: #e5e7eb;
-      font-size: 0.9rem;
+      font-size: 1rem;
     }
     .drop-or {
       margin-top: 8px;
-      font-size: 0.85rem;
+      font-size: 1rem;
       color: #9ca3af;
     }
     #fileInputReal {
       margin-bottom: 12px;
-      font-size: 0.8rem;
+      font-size: 1rem;
       color: #e5e7eb;
     }
     .drop-area input[type="file"] {
@@ -220,12 +221,12 @@
       cursor: pointer;
       background: linear-gradient(to right, #4b5563, #9ca3af);
       color: #f9fafb;
-      font-size: 0.9rem;
+      font-size: 1rem;
       font-weight: 500;
     }
     .upload-status {
       margin-top: 6px;
-      font-size: 0.75rem;
+      font-size: 1rem;
     }
     .upload-status.ok { color: #a3e635; }
     .upload-status.err { color: #f97373; }
@@ -241,7 +242,7 @@
       background: #020617;
       background: linear-gradient(to right, #4b5563, #9ca3af);
       color: #e5e7eb;
-      font-size: 0.9rem;
+      font-size: 1rem;
       cursor: pointer;
     }
 
@@ -375,9 +376,9 @@
 <body>
   <div class="layout">
     <aside class="sidebar">
-      <div style="font-size:0.9rem;font-weight:600;">OptiGuide</div>
-      <div style="font-size:0.78rem;color:#9ca3af;">
-        Data-aware inventory &amp; fulfillment assistant.
+      <div style="font-size:1.5rem;font-weight:600;">Chat</div>
+      <div style="font-size:1rem;color:#9ca3af;">
+        Connected to your inventory dataset.
       </div>
 
       <!-- UPLOAD BOX -->
@@ -395,7 +396,7 @@
     </div>
 
 
-      <div style="font-size:0.8rem;color:#9ca3af;margin-top:1rem;">
+      <div style="font-size:1rem;color:#9ca3af;margin-top:1rem;">
         Try asking:
         <ul style="margin-left:1rem;margin-top:0.4rem;list-style:disc;">
           <li>“Where am I overstocked this month?”</li>
@@ -408,8 +409,8 @@
     <section class="main">
       <header>
         <div>
-          <h1>Chat</h1>
-          <span class="sub">Connected to your inventory dataset</span>
+          <h1>OptiGuide</h1>
+          <span class="sub"> <p>Data-aware inventory &amp; fulfillment assistant.<p></span>
         </div>
         <button id="themeToggle" class="theme-toggle">Light mode</button>
       </header>
