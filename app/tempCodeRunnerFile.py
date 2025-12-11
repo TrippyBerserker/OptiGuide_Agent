@@ -10,7 +10,6 @@ from agents.schema_agent import detect_schema
 from agents.extraction_agent import extract_parameters
 from app.main import answer  # your existing LLM pipeline
 
-
 app = Flask(__name__)
 
 # Folder where datasets live
@@ -122,19 +121,20 @@ def save_uploaded_as_test(csv_path: str):
     invalidate_cache()
 
     return True, f"Uploaded dataset saved as test.csv. Columns: {', '.join(processed_df.columns)}"
-from flask import Flask, request, jsonify, render_template
-# ... your existing imports ...
 
-# your existing config, functions, routes...
+from flask import session
+
+# -----------------------------------------------------
+# Route: Home (ChatGPT-style UI)
+# -----------------------------------------------------
 @app.route("/")
-def intro():
-    return render_template("intro.html")
-
-@app.route("/chat")
-def chat():
-    return render_template("chat.html")
+def index():
+    return render_template("index.html")
 
 
+# -----------------------------------------------------
+# Route: Upload CSV
+# -----------------------------------------------------
 @app.route("/upload", methods=["POST"])
 def upload_file():
     try:
@@ -145,11 +145,13 @@ def upload_file():
         if f.filename == "":
             return jsonify({"message": "No selected file"}), 400
 
+        # Temporarily save uploaded file (original name not important)
         temp_path = os.path.join(app.config["UPLOAD_FOLDER"], "_upload_temp.csv")
         f.save(temp_path)
 
         ok, msg = save_uploaded_as_test(temp_path)
 
+        # Remove temp file; processed data now in test.csv
         try:
             os.remove(temp_path)
         except OSError:
@@ -158,20 +160,22 @@ def upload_file():
         if not ok:
             return jsonify({"message": msg}), 500
 
-        return jsonify({
-            "message": f"Upload complete. {msg} Using test.csv as active dataset."
-        }), 200
+        return jsonify({"message": f"Upload complete. {msg} Using test.csv as active dataset."}), 200
 
     except Exception as e:
         traceback.print_exc()
         return jsonify({"message": f"Upload failed: {e}"}), 500
 
 
+# -----------------------------------------------------
+# Route: Chat Query
+# -----------------------------------------------------
 @app.route("/query", methods=["POST"])
 def query():
     try:
         data = request.get_json() or {}
         question = data.get("query", "").strip()
+
         if not question:
             return jsonify({"response": "Please enter a query."})
 
@@ -188,12 +192,11 @@ def query():
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify(
-            {"response": "Server error processing your request.", "error": str(e)}
-        ), 500
+        return jsonify({
+            "response": "Server error processing your request.",
+            "error": str(e)
+        }), 500
 
-# keep /upload and /query exactly as you have them
-# ...
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
