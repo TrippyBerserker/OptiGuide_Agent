@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>OptiGuide – Inventory Optimization Copilot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1e293b, #020617);
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .card {
+      max-height: 9000px;
+      height: 500px;
+      max-width: 1000px;
+      width: 1200%;
+      background: rgba(20, 24, 33, 0.9);
+      border-radius: 1.5rem;
+      border: 1px solid rgba(164, 178, 198, 0.3);
+      padding: 2.5rem;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      line-height: 1.6;
+      display: block;
+    }
+    main.card h2 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
+    main.card p,
+    main.card > div {
+      margin-top: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.4fr);
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(25, 30, 40, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      font-size: 0.78rem;
+      color: #e5e7eb;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .stats {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .stat-label {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.7rem;
+      color: #6b7280;
+    }
+    .stat-value {
+      font-size: 1.1rem;
+      color: #e5e7eb;
+      margin-top: 0.2rem;
+    }
+    .actions {
+      margin-top: 3rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+    }
+    .btn-primary {
+      background: linear-gradient(to right, #222427, #4b5563);
+      color: #ffffff;
+      border-radius: 999px;
+      padding: 1rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 10px 30px rgba(123, 128, 130, 0.4);
+    }
+    .hint {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      color: #bfc6d1;
+      }
+    @media (max-width: 768px) {
+      .card { padding: 1.8rem; }
+      .grid { grid-template-columns: minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h2>Meet OptiGuide,Your data-aware supply chain analyst.</h2>
+      An offline inventory optimization tool that lets you upload product data, ask natural-language questions, and receive clear solver-based decisions. It automatically cleans your data, identifies product fields, fills missing values, and runs a simple allocation model — all on your device without cloud dependency.
+    <p class="hint">
+      No setup needed. You can start with the default combined dataset, or upload your own CSV later.
+    </p>
+
+    <div class="grid">
+      <section>
+        <div>
+          <div class="pill"> CSV-aware reasoning</div>
+          <div class="pill">Stockout & overstock detection</div>
+          <div class="pill">Cost and margin analysis</div>
+          <div class="pill">Multi-location fulfillment</div>
+        </div>
+      </section>
+      <section>
+        <div class="stats">
+          <div>
+            <div class="stat-label">Optimized for</div>
+            <div class="stat-value">CSV inventory tables</div>
+          </div>
+          <div>
+            <div class="stat-label">Works with</div>
+            <div class="stat-value">Your existing data schema</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn-primary" onclick="window.location.href='/chat'">
+            Get started
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
