@@ -2,360 +2,478 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>OptiGuide Chat</title>
+  <title>InvOptica Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    /* --- CSS VARIABLES --- */
+    :root {
+      /* Dark Theme (Default) */
+      --bg-body: #131314;
+      --bg-sidebar: #1e1f20;
+      --bg-input: #1e1f20;
+      --text-main: #e3e3e3;
+      --text-muted: #c4c7c5;
+      --border-color: #444746;
+      
+      /* Message Bubbles */
+      --msg-user-bg: #282a2c;
+      --msg-user-text: #e3e3e3;
+      --msg-bot-text: #e3e3e3;
+      
+      --accent-color: #a8c7fa; 
+      --btn-hover: #2b2d30;
+      --font-family: "Google Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+      --toggle-bg: #444746;
+      --toggle-circle: #e3e3e3;
+    }
+
+    [data-theme="light"] {
+      /* Light Theme */
+      --bg-body: #ffffff;
+      --bg-sidebar: #f0f4f9;
+      --bg-input: #f0f4f9;
+      --text-main: #1f1f1f;
+      --text-muted: #444746;
+      --border-color: #e0e3e1;
+
+      --msg-user-bg: #d3e3fd; 
+      --msg-user-text: #041e49;
+      --msg-bot-text: #1f1f1f;
+
+      --accent-color: #0b57d0;
+      --btn-hover: #e0e3e1;
+
+      --toggle-bg: #d1d5db;
+      --toggle-circle: #ffffff;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #000000;
-      color: #e5e7eb;
-      min-height: 100vh;
+      font-family: var(--font-family);
+      background: var(--bg-body);
+      color: var(--text-main);
+      height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden; 
     }
+
     .layout {
       display: flex;
       flex: 1;
-      width: 100%;
-      max-width: 100%;
-      margin: 0;
+      overflow: hidden;
     }
+
+    /* --- SIDEBAR (Expandable / Mini) --- */
     .sidebar {
-      width: 250px;
-      border-right: 1px solid #1f2937;
+      width: 25%;
+      min-width: 250px;
+      background: var(--bg-sidebar);
       padding: 1rem;
-      background: #020617;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 1.5rem;
+      flex-shrink: 0;
+      font-size: 0.9rem;
+      
+      /* Animation for collapsing */
+      transition: width 0.3s ease, min-width 0.3s ease, padding 0.3s ease;
+      overflow: hidden;
+      white-space: nowrap; 
     }
-    .mine{
-      font-size: 0.7rem;
+
+    /* Collapsed State: Mini Sidebar */
+    .sidebar.collapsed {
+        width: 70px;     /* Width of the mini bar */
+        min-width: 70px;
+        padding: 1rem 0.5rem; /* Less padding */
+        align-items: center;  /* Center the menu button */
     }
+
+    /* Hide text/content when collapsed */
+    .sidebar.collapsed .hide-on-collapse {
+        display: none;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .drop-text {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    
+    li.drop-text {
+        margin-left: 1rem;
+        margin-bottom: 0.5rem;
+        margin-top: 15px; 
+    }
+
+    /* Upload Box Styling */
+    .upload-box {
+      border: 1px dashed var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      transition: background 0.2s;
+      width: 100%; /* Fill sidebar */
+    }
+    
+    .drop-area {
+      cursor: pointer;
+      padding: 1rem 0;
+    }
+    .drop-area.dragover {
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .upload-btn {
+      width: 100%;
+      padding: 0.6rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: transparent;
+      color: var(--accent-color);
+      cursor: pointer;
+      margin-top: 10px;
+      font-weight: 500;
+    }
+    .upload-btn:hover {
+      background: rgba(168, 199, 250, 0.1);
+    }
+    
+    .upload-status { font-size: 0.75rem; margin-top: 5px; }
+    .upload-status.norm { color: #4ade80; } 
+    .upload-status.ok { color: #4ade80; } 
+    .upload-status.err { color: #f87171; }
+    
+    #fileInputHidden { display: none; }
+
+    /* --- MENU BUTTON (Now in Sidebar) --- */
+    .menu-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-main);
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        align-self: flex-start; /* Align left normally */
+        margin-bottom: 10px;
+    }
+    /* Center button when sidebar is collapsed */
+    .sidebar.collapsed .menu-btn {
+        align-self: center;
+        margin-bottom: 0;
+    }
+    .menu-btn:hover {
+        background-color: var(--btn-hover);
+    }
+
+    /* --- MAIN CHAT AREA --- */
     .main {
       flex: 1;
       display: flex;
       flex-direction: column;
-      font-size: 0.7rem;
+      position: relative;
     }
+
+    /* HEADER */
     header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #1f2937;
+      padding: 1rem 2rem;
       display: flex;
-      justify-content: space-between;
+      justify-content: center; /* Center content horizontally */
       align-items: center;
-      background: #020617;
+      background: var(--bg-body);
+      z-index: 10;
+      position: relative; 
     }
+    
     header h1 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #e5e7eb;
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: var(--text-main);
+      text-align: center;
     }
+
+    /* --- TOGGLE SWITCH (Sun/Moon) --- */
+    .theme-switch-wrapper {
+      position: absolute;
+      right: 2rem;
+      display: flex;
+      align-items: center;
+    }
+    
+    .theme-switch {
+      display: inline-block;
+      height: 26px; 
+      position: relative;
+      width: 54px;
+    }
+    
+    .theme-switch input { display: none; }
+    
+    .slider {
+      background-color: var(--toggle-bg);
+      bottom: 0;
+      cursor: pointer;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+      transition: .4s;
+      border-radius: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+      font-size: 14px;
+    }
+    
+    .slider:before {
+      background-color: var(--toggle-circle);
+      bottom: 3px;
+      content: "";
+      height: 20px;
+      left: 3px;
+      position: absolute;
+      transition: .4s;
+      width: 20px;
+      border-radius: 50%;
+      z-index: 2;
+    }
+    
+    input:checked + .slider:before { transform: translateX(28px); }
+    
+    .icon-sun { opacity: 0.7; margin-left: 2px; }
+    .icon-moon { opacity: 0.7; margin-right: 2px; }
+
+    /* --- MESSAGES LIST --- */
     .messages {
       flex: 1;
       overflow-y: auto;
-      padding: 1rem 1.5rem 6rem;
-      background: #020617;
-    }
-    .msg-row {
+      padding: 1rem 15% 8rem 15%; 
+      background: var(--bg-body) !important;
       display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
+      flex-direction: column;
+      gap: 1.5rem;
     }
-    .msg-user {
-      justify-content: flex-end;
-    }
+
+    .msg-row { display: flex; gap: 1rem; width: 100%; }
+
     .msg-avatar {
       width: 32px;
       height: 32px;
-      border-radius: 999px;
-      background: #0f172a;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.8rem;
-      color: #ffffff;
+      font-size: 0.75rem;
       flex-shrink: 0;
     }
-    .msg-content {
-      max-width: 650px;
-      height: auto;
-      padding: 0.75rem 1rem;
-      border-radius: 0.75rem;
-      font-size: 0.95rem;
-      line-height: 1.1;
-    }
-    .msg-user .msg-content {
-      background: #0b1120;
-      border: 1px solid #1f2937;
-      order: 1;
-    }
-    .msg-user .msg-avatar {
-      order: 2;
+
+    .msg-bot { alignItems: flex-start; }
+    .msg-bot .msg-avatar {
+      background: linear-gradient(135deg, #4285f4, #d96570); 
+      color: white;
+      font-weight: bold;
     }
     .msg-bot .msg-content {
-      background: #020617;
-      border: 1px solid #1c2026;
-    }
-    .msg-label {
+      background: transparent;
+      border: none;
+      padding: 0.5rem 0;
+      color: var(--msg-bot-text);
       font-size: 1rem;
-      color: #9ca3af;
-      margin-bottom: 0.2rem;
+      line-height: 1.6;
     }
+    .msg-bot .msg-label {
+      display: block; 
+      font-weight: 600; 
+      font-size: 0.85rem; 
+      margin-bottom: 0.2rem;
+      color: var(--text-main);
+    }
+
+    .msg-user { justify-content: flex-end; }
+    .msg-user .msg-avatar { display: none; }
+    .msg-user .msg-content {
+      background-color: var(--msg-user-bg);
+      color: var(--msg-user-text);
+      padding: 0.8rem 1.2rem;
+      border-radius: 1.2rem;
+      border-top-right-radius: 0.2rem;
+      max-width: 80%;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+    .msg-user .msg-label { display: none; }
+
+    /* --- INPUT AREA --- */
     .input-area {
-      position: fixed;
+      position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
-      border-top: 1px solid #1f2937;
-      background: linear-gradient(to top, #020617, rgba(2, 6, 23, 0.98));
-      padding: 0.8rem;
+      background: linear-gradient(to top, var(--bg-body) 80%, transparent);
+      padding: 2rem 0;
       display: flex;
       justify-content: center;
+      align-items: flex-end;
     }
+
     .input-inner {
-      max-width: 900px;
-      width: 90%;
+      width: 70%;
+      max-width: 800px;
+      background: var(--bg-input);
+      border-radius: 28px;
+      padding: 0.8rem 1rem;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      transition: background 0.2s;
     }
-    .input-row {
-      display: flex;
-      gap: 0.5rem;
-    }
+    .input-inner:focus-within { background: var(--bg-sidebar); }
+
+    .input-row { display: flex; align-items: flex-end; gap: 0.5rem; }
+
     textarea {
       flex: 1;
-      resize: none;
-      border-radius: 0.5rem;
-      border: 1px solid #9398a0;
-      background: #020617;
-      color: #e5e7eb;
-      padding: 0.76rem 0.9rem;
-      font-size: 0.8rem;
-      max-width: 900px;
-    }
-    textarea:focus {
-      outline: none;
-      border-color: #e7e7e7;
-      box-shadow: 0 0 0 1px rgba(156, 163, 175, 0.4);
-    }
-    .btn-send {
-      padding: 0.8rem;
-      border-radius: 98px;
-      margin-top: 5px;
-      width: 60px;
-      height: 40px;
+      background: transparent;
       border: none;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 1rem;
+      resize: none;
+      max-height: 150px;
+      padding: 6px;
+      outline: none;
+    }
+    textarea::placeholder { color: var(--text-muted); }
+
+    .btn-send {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--text-main);
+      color: var(--bg-body);
       cursor: pointer;
-      background: linear-gradient(to right, #4b5563, #9ca3af);
-      color: #f9fafb;
-      font-size: 0.7rem;
-      font-weight: 500;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: opacity 0.2s;
     }
-    .btn-send:disabled {
-      opacity: 0.5;
-      cursor: default;
+    .btn-send:hover { opacity: 0.9; }
+    .btn-send:disabled { opacity: 0.3; cursor: not-allowed; }
+    
+    .btn-send::after {
+        content: "➤";
+        font-size: 0.9rem;
+        margin-left: 2px;
     }
-    .hint {
-      font-size: 0.6rem;
-      color: #98b1e2;
-    }
-    .hint strong { color: #aab0bb; }
+    .btn-send { font-size: 0; } 
 
-    /* UPLOAD BOX (grayscale) */
-    .upload-box {
-      background: #020617;
-      border-radius: 12px;
-      padding: 16px;
-      font-size: 1rem;
-      color: #e1e1e1;
-    }
-    .drop-area {
-      border: 2px dashed #9ca3af;
-      width: 180px;
-      border-radius: 18px;
-      padding: 27px;
+    .hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
       text-align: center;
-      margin-bottom: 10px;
-      cursor: pointer;
+      margin-top: 0.4rem;
     }
-    .drop-area.dragover {
-      background: #020617;
-      border-color: #d1d5db;
-    }
-    .drop-text {
-      color: #e5e7eb;
-      font-size: 0.7rem;
-    }
-    .drop-or {
-      margin-top: 8px;
-      font-size: 0.7rem;
-      color: #9ca3af;
-    }
-    #fileInputReal {
-      margin-bottom: 12px;
-      font-size: 1rem;
-      color: #e5e7eb;
-    }
-    .drop-area input[type="file"] {
-      display: none;
-    }
-    .upload-btn {
-      padding: 0.8rem;
-      border-radius: 98px;
-      border: none;
-      cursor: pointer;
-      background: linear-gradient(to right, #4b5563, #9ca3af);
-      color: #f9fafb;
-      font-size: 0.7rem;
-      font-weight: 500;
-    }
-    .upload-status {
-      margin-top: 6px;
-      font-size: 0.8rem;
-    }
-    .upload-status.norm { color: #b5bb06; }
-    .upload-status.ok { color: #009c1d; }
-    .upload-status.err { color: #cb2626; }
 
     @media (max-width: 850px) {
-      .sidebar { display: none; }
-      .layout { margin: 0; }
+      .sidebar { 
+        position: absolute; 
+        z-index: 100; 
+        height: 100%; 
+        width: 250px;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+      }
+      .sidebar.collapsed { width: 0; min-width: 0; padding: 0;} /* Full hide on mobile usually better */
+      .messages { padding: 1rem 1rem 8rem; }
+      .input-inner { width: 90%; }
+      header h1 { font-size: 1.1rem; }
     }
-    .theme-toggle {
-      padding: 0.8rem;
-      border-radius: 99px;
-      border: 1px solid #4b5563;
-      background: #020617;
-      background: linear-gradient(to right, #4b5563, #9ca3af);
-      color: #e5e7eb;
-      font-size: 0.7rem;
-      cursor: pointer;
-    }
-
-    [data-theme="light"] .input-area,
-    [data-theme="light"] header *{
-      background: #f9fafb;
-      color: #111827;
-    }
-    [data-theme="light"] body,
-    [data-theme="light"] .hint,
-    [data-theme="light"] textarea,
-    [data-theme="light"] .msg-avatar,
-    [data-theme="light"] .sidebar,
-    [data-theme="light"] .upload-box,
-    [data-theme="light"] .drop-area,
-    [data-theme="light"] .drop-text,
-    [data-theme="light"] .drop-or,
-    [data-theme="light"] .upload-btn,
-    [data-theme="light"] header,
-    [data-theme="light"] header * {
-      background-color: #f9fafb;
-      color: #000000;
-    }
-
-    /* DARK theme (default) */
-    body
-    .sidebar,
-    .main,
-    header,
-    .messages,
-    .input-area,
-    .upload-box,
-    .drop-area,
-    .msg-content,
-    .msg-label,
-    .hint {
-      color: #ffffff;
-    }
-        /* Same grey chat background for both themes */
-    /* Chat area always same grey, ignore theme */
-    /* Chat area: medium grey, same in both themes */
-.messages {
-  background-color: #3f3f3f !important;  /* medium grey */
-}
-
-/* Message bubbles: light grey on that background, same in both themes */
-.msg-bot .msg-content,
-.msg-user .msg-content,.msg-label{
-  background-color: #a5a5a5 !important;  /* lighter grey */
-  border-color: #313131 !important;
-  color: #000000;  /* readable on light bubble */
-}
-
-
   </style>
 </head>
 <body>
   <div class="layout">
-    <aside class="sidebar">
-      <div class="drop-text">Chat</div>
-      <div class="drop-text">
-        Connected to your inventory dataset.
+    <aside class="sidebar" id="sidebar">
+      <button id="menuBtn" class="menu-btn">☰</button>
+      
+      <div class="hide-on-collapse">
+        <div class="drop-text" style="font-weight: 600; font-size: 1rem;">New Chat</div>
+        <div class="drop-text">
+            Connected to inventory dataset.
+        </div>
       </div>
 
-      <!-- UPLOAD BOX -->
-    <div class="upload-box">
+      <div class="upload-box hide-on-collapse">
         <div class="drop-area" id="dropArea">
+            <div class="drop-text" style="font-size: 3rem; line-height: 1; margin-bottom: 5px;">+</div>
             <div class="drop-text">
-            Drag &amp; Drop CSV here
-            <div class="drop-or">or click to browse</div>
+            Drag CSV here
             </div>
             <input type="file" id="fileInputHidden" accept=".csv" />
         </div>
 
         <button id="uploadBtn" class="upload-btn">Upload File</button>
         <div id="uploadStatus" class="upload-status"></div>
-    </div>
+      </div>
 
-
-      <div class="drop-text">
-        Try asking:
-          <li class="drop-text">“Where am I overstocked this month?”</li>
-          <li class="drop-text">“Which products are at risk of stockout?”</li>
-          <li class="drop-text">“How can I lower my holding cost?”</li>
+      <div class="hide-on-collapse" style="margin-top: auto;">
+        <strong>Suggestions:</strong>
+          <li class="drop-text">Where am I overstocked?</li>
+          <li class="drop-text">Risk of stockout?</li>
+          <li class="drop-text">Lower holding cost?</li>
       </div>
     </aside>
 
     <section class="main">
       <header>
-        <div>
-          <h1>OptiGuide</h1>
-          <span class="drop-text">Data-aware inventory &amp; fulfillment assistant.</span>
+        <h1>InvOptica</h1>
+        
+        <div class="theme-switch-wrapper">
+           <label class="theme-switch" for="checkbox">
+            <input type="checkbox" id="checkbox" checked />
+            <div class="slider round">
+              <span class="icon-sun">☀️</span>
+              <span class="icon-moon">🌙</span>
+            </div>
+          </label>
         </div>
-        <button id="themeToggle" class="theme-toggle">Light mode</button>
       </header>
 
       <div id="messages" class="messages">
         <div class="msg-row msg-bot">
-          <div class="msg-avatar">OG</div>
+          <div class="msg-avatar">✨</div>
           <div class="msg-content">
-            <div class="msg-label">OptiGuide</div>
+            <div class="msg-label">InvOptica</div>
             <div>
-              I’m ready. You can upload a CSV in the left panel or start querying the default dataset.
-              Ask about stockouts, overstock, costs, or fulfillment trade-offs.
+              Hello! I’m ready to help you analyze your inventory. You can upload a CSV on the left or ask me about stockouts, costs, and fulfillment.
             </div>
           </div>
         </div>
       </div>
-    </section>
-  </div>
 
-  <div class="input-area">
-    <div class="input-inner">
-      <div class="input-row">
-        <textarea id="userInput" placeholder="Ask a question about your inventory, demand, or fulfillment..."></textarea>
-        <button id="sendBtn" class="btn-send">Send</button>
+      <div class="input-area">
+        <div class="input-inner">
+          <div class="input-row">
+            <textarea id="userInput" rows="1" placeholder="Ask a question..."></textarea>
+            <button id="sendBtn" class="btn-send">Send</button>
+          </div>
+          <div class="hint">
+            InvOptica may display inaccurate info, so double-check your data.
+          </div>
+        </div>
       </div>
-      <div class="hint">
-        <strong>Tip:</strong> Try “Given current demand, where am I likely to stock out in the next 2 weeks?”
-      </div>
-    </div>
+    </section>
   </div>
 
     <script>
@@ -363,6 +481,22 @@
       const messagesEl = document.getElementById("messages");
       const userInputEl = document.getElementById("userInput");
       const sendBtn = document.getElementById("sendBtn");
+      
+      // Sidebar Toggles
+      const menuBtn = document.getElementById("menuBtn");
+      const sidebar = document.getElementById("sidebar");
+      
+      // Toggle sidebar on click
+      menuBtn.addEventListener("click", () => {
+          sidebar.classList.toggle("collapsed");
+      });
+
+      // Auto-resize textarea
+      userInputEl.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+        if(this.value === '') this.style.height = 'auto';
+      });
 
       function appendMessage(role, text) {
         const row = document.createElement("div");
@@ -370,14 +504,15 @@
 
         const avatar = document.createElement("div");
         avatar.className = "msg-avatar";
-        avatar.textContent = role === "user" ? "You" : "OG";
+        
+        avatar.textContent = role === "user" ? "You" : "✨";
 
         const content = document.createElement("div");
         content.className = "msg-content";
 
         const label = document.createElement("div");
         label.className = "msg-label";
-        label.textContent = role === "user" ? "You" : "OptiGuide";
+        label.textContent = role === "user" ? "You" : "InvOptica";
 
         const body = document.createElement("div");
         body.textContent = text;
@@ -391,12 +526,12 @@
         }
 
         async function sendMessage() {
-          console.log("sendMessage called");
           const text = userInputEl.value.trim();
           if (!text) return;
 
           appendMessage("user", text);
           userInputEl.value = "";
+          userInputEl.style.height = 'auto'; 
           sendBtn.disabled = true;
 
           try {
@@ -412,7 +547,6 @@
               data = JSON.parse(raw);
             } catch (e) {
               appendMessage("bot", "Server did not return JSON for /query.");
-              console.error("QUERY raw response:", raw);
               return;
             }
 
@@ -426,7 +560,6 @@
         }
 
         sendBtn.addEventListener("click", () => {
-          console.log("SEND CLICKED");
           sendMessage();
         });
 
@@ -436,20 +569,22 @@
             sendMessage();
           }
         });
-        const themeToggle = document.getElementById("themeToggle");
-          function setTheme(theme) {
-          document.documentElement.setAttribute("data-theme", theme);
-          themeToggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
+        
+        // Theme Logic
+        const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+          function switchTheme(e) {
+            if (e.target.checked) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }    
         }
-
-        setTheme("dark");
-
-        themeToggle.addEventListener("click", () => {
-          const current = document.documentElement.getAttribute("data-theme") || "dark";
-          setTheme(current === "dark" ? "light" : "dark");
-        });
+        
+        document.documentElement.setAttribute('data-theme', 'dark');
+        toggleSwitch.addEventListener('change', switchTheme, false);
 
       });
+      
       const dropArea = document.getElementById("dropArea");
       const fileInputHidden = document.getElementById("fileInputHidden");
       const uploadBtn = document.getElementById("uploadBtn");
@@ -479,8 +614,9 @@
         const file = e.dataTransfer.files[0];
         if (!file) return;
         activeFile = file;
+        
         uploadStatusEl.textContent = `Selected: ${file.name}`;
-        uploadStatusEl.className = "upload-status norm";
+        uploadStatusEl.className = "upload-status ok";
       });
 
       // click to open file dialog
@@ -490,15 +626,14 @@
         const file = e.target.files[0];
         if (!file) return;
         activeFile = file;
+        
         uploadStatusEl.textContent = `Selected: ${file.name}`;
-        uploadStatusEl.className = "upload-status norm";
+        uploadStatusEl.className = "upload-status ok";
       });
 
       // upload
       uploadBtn.addEventListener("click", async () => {
-        uploadStatusEl.textContent = "";
-        uploadStatusEl.className = "upload-status";
-
+        
         if (!activeFile) {
           uploadStatusEl.textContent = "Please choose or drop a file.";
           uploadStatusEl.className = "upload-status err";
@@ -512,7 +647,6 @@
         try {
           const res = await fetch("/upload", { method: "POST", body: formData });
           const raw = await res.text();
-          console.log("UPLOAD raw:", raw);
 
           let data;
           try {
@@ -527,7 +661,8 @@
             const fileName = activeFile.name;
             activeFile = null;
             fileInputHidden.value = "";
-            uploadStatusEl.textContent = `${fileName} uploaded successfully`;
+            
+            uploadStatusEl.textContent = `Dataset uploaded: ${fileName}`;
             uploadStatusEl.className = "upload-status ok";
           } else {
             uploadStatusEl.textContent = data.message || "Upload failed.";
@@ -541,7 +676,5 @@
         }
       });
     </script>
-
-
 </body>
 </html>
