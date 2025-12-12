@@ -22,7 +22,7 @@
       margin: 0;
     }
     .sidebar {
-      width: 300px;
+      width: 250px;
       border-right: 1px solid #1f2937;
       padding: 1rem;
       background: #020617;
@@ -47,21 +47,13 @@
       background: #020617;
     }
     header h1 {
-      font-size: 1.5rem;
+      font-size: 1rem;
       font-weight: 600;
       color: #e5e7eb;
     }
     header span.sub {
-      font-size: 1rem;
+      font-size: 0.9rem;
       color: #6b7280;
-    }
-    .badge {
-      font-size: 0.75rem;
-      padding: 0.3rem 0.7rem;
-      border-radius: 999px;
-      background: rgba(107, 114, 128, 0.6);
-      color: #f9fafb;
-      border: 1px solid #9ca3af;
     }
     .messages {
       flex: 1;
@@ -86,15 +78,16 @@
       align-items: center;
       justify-content: center;
       font-size: 0.8rem;
-      color: #9ca3af;
+      color: #ffffff;
       flex-shrink: 0;
     }
     .msg-content {
-      max-width: 800px;
+      max-width: 650px;
+      height: auto;
       padding: 0.75rem 1rem;
       border-radius: 0.75rem;
-      font-size: 1rem;
-      line-height: 1.5;
+      font-size: 0.95rem;
+      line-height: 1.1;
     }
     .msg-user .msg-content {
       background: #0b1120;
@@ -126,7 +119,7 @@
     }
     .input-inner {
       max-width: 900px;
-      width: 100%;
+      width: 90%;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
@@ -138,30 +131,33 @@
     textarea {
       flex: 1;
       resize: none;
-      border-radius: 0.75rem;
-      border: 1px solid #374151;
+      border-radius: 0.5rem;
+      border: 1px solid #9398a0;
       background: #020617;
       color: #e5e7eb;
-      padding: 0.7rem 0.9rem;
-      font-size: 1rem;
-      min-height: 46px;
-      max-height: 130px;
+      padding: 0.76rem 0.9rem;
+      font-size: 0.8rem;
+      min-height: 50px;
+      max-height: 30px;
       max-width: 900px;
     }
     textarea:focus {
       outline: none;
-      border-color: #9ca3af;
+      border-color: #e7e7e7;
       box-shadow: 0 0 0 1px rgba(156, 163, 175, 0.4);
     }
     .btn-send {
-      border-radius: 0.75rem;
+      padding: 0.8rem;
+      border-radius: 98px;
+      margin-top: 5px;
+      width: 60px;
+      height: 40px;
       border: none;
-      padding: 0 1.2rem;
-      background: #6b7280;
-      color: #f9fafb;
-      font-weight: 600;
       cursor: pointer;
-      font-size: 1.3rem;
+      background: linear-gradient(to right, #4b5563, #9ca3af);
+      color: #f9fafb;
+      font-size: 0.7rem;
+      font-weight: 500;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -171,25 +167,26 @@
       cursor: default;
     }
     .hint {
-      font-size: 0.75rem;
-      color: #6b7280;
+      font-size: 0.6rem;
+      color: #98b1e2;
     }
-    .hint strong { color: #9ca3af; }
+    .hint strong { color: #aab0bb; }
 
     /* UPLOAD BOX (grayscale) */
     .upload-box {
       background: #020617;
-      border-radius: 14px;
+      border-radius: 12px;
       padding: 16px;
       font-size: 1rem;
       color: #e5e7eb;
     }
     .drop-area {
       border: 2px dashed #9ca3af;
-      border-radius: 12px;
-      padding: 32px 12px;
+      width: 180px;
+      border-radius: 18px;
+      padding: 27px;
       text-align: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       cursor: pointer;
     }
     .drop-area.dragover {
@@ -198,11 +195,11 @@
     }
     .drop-text {
       color: #e5e7eb;
-      font-size: 1rem;
+      font-size: 0.7rem;
     }
     .drop-or {
       margin-top: 8px;
-      font-size: 1rem;
+      font-size: 0.7rem;
       color: #9ca3af;
     }
     #fileInputReal {
@@ -214,35 +211,34 @@
       display: none;
     }
     .upload-btn {
-      width: 100%;
-      padding: 10px 0;
-      border-radius: 999px;
+      padding: 0.8rem;
+      border-radius: 98px;
       border: none;
       cursor: pointer;
       background: linear-gradient(to right, #4b5563, #9ca3af);
       color: #f9fafb;
-      font-size: 1rem;
+      font-size: 0.7rem;
       font-weight: 500;
     }
     .upload-status {
       margin-top: 6px;
       font-size: 1rem;
     }
-    .upload-status.ok { color: #a3e635; }
-    .upload-status.err { color: #f97373; }
+    .upload-status.ok { color: #00f610; }
+    .upload-status.err { color: #cb2626; }
 
-    @media (max-width: 900px) {
+    @media (max-width: 850px) {
       .sidebar { display: none; }
       .layout { margin: 0; }
     }
     .theme-toggle {
-      padding: 1rem 0.9rem;
-      border-radius: 999px;
+      padding: 0.8rem;
+      border-radius: 99px;
       border: 1px solid #4b5563;
       background: #020617;
       background: linear-gradient(to right, #4b5563, #9ca3af);
       color: #e5e7eb;
-      font-size: 1rem;
+      font-size: 0.7rem;
       cursor: pointer;
     }
 
@@ -376,8 +372,8 @@
 <body>
   <div class="layout">
     <aside class="sidebar">
-      <div style="font-size:1.5rem;font-weight:600;">Chat</div>
-      <div style="font-size:1rem;color:#9ca3af;">
+      <div style="font-size:1rem;font-weight:600;">Chat</div>
+      <div style="font-size:0.7rem;color:#9ca3af;">
         Connected to your inventory dataset.
       </div>
 
@@ -396,7 +392,7 @@
     </div>
 
 
-      <div style="font-size:1rem;color:#9ca3af;margin-top:1rem;">
+      <div style="font-size:0.7rem;color:#9ca3af;margin-top:1rem;">
         Try asking:
         <ul style="margin-left:1rem;margin-top:0.4rem;list-style:disc;">
           <li>“Where am I overstocked this month?”</li>
